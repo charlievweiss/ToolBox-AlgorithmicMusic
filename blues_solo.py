@@ -1,4 +1,11 @@
-""" Synthesizes a blues solo algorithmically """
+""" Synthesizes a blues solo algorithmically 
+Includes all parts up to Make It Cooler, as well as these parts:
+1. Avoid hammering lowest or highest note
+    by changing to a root note when the index goes out of bounds
+2. Add a backing track
+    with the code segment at the bottom
+3. Moving beyond simple intervals
+    Changes the note to a root note after each 4 bar phrase"""
 
 from Nsound import *
 import numpy as np
@@ -29,8 +36,38 @@ solo = AudioStream(sampling_rate, 1)
 """ these are the piano key numbers for a 3 octave blues scale in A
 	See: http://en.wikipedia.org/wiki/Blues_scale """
 blues_scale = [25, 28, 30, 31, 32, 35, 37, 40, 42, 43, 44, 47, 49, 52, 54, 55, 56, 59, 61]
-beats_per_minute = 45				# Let's make a slow blues solo
+beats_per_minute = 45				# Let's make a faster blues solo
 
-add_note(solo, bass, blues_scale[0], 1.0, beats_per_minute, 1.0)
+curr_note = 1
+list_notes = []
+#add_note(solo, bass, blues_scale[curr_note], 1.0, beats_per_minute, 1.0)
 
-solo >> "blues_solo.wav"
+licks = [ [ [1,0.5], [1,0.5], [1, 0.25], [1, 0.75] ],[ [-1, 1*1.1], [-1, 0.25*.9], [-1, 0.25*.9], [-1, 0.5] ] ]
+for i in range(64):
+    lick = licks[choice([0,1])]
+    for note in lick:
+        if i%4 == 0 and note is lick[0]: #plays root note at beginning of phrase
+            curr_note = choice([0,6,12,18])
+        else: # increments normally
+            if curr_note >= len(blues_scale)-1 or curr_note <= 0:
+                curr_note = choice([0,6,12,18])
+            else:
+                curr_note += note[0]
+        add_note(solo, bass, blues_scale[curr_note], note[1], beats_per_minute, 1.0)
+        list_notes.append(curr_note)
+
+print list_notes # see what notes to expect!
+
+# add a backing track
+backing_track = AudioStream(sampling_rate, 1)
+Wavefile.read('backing.wav', backing_track)
+
+m = Mixer()
+
+solo *= 0.4             # adjust relative volumes to taste
+backing_track *= 2.0
+
+m.add(2.25, 0, solo)    # delay the solo to match up with backing track    
+m.add(0, 0, backing_track)
+
+m.getStream(500.0) >> "slow_blues.wav"
